@@ -1,0 +1,35 @@
+name: Build & Release Magisk Module
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Lint Scripts
+      run: shellcheck validate.sh customize.sh
+    - name: Run Tests
+      run: bash validate.sh
+    - name: Build Module with Script
+      run: ./bridge_script.py --output-dir module
+    - name: Zip Module
+      run: zip -r module.zip module/
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: module
+        path: module.zip
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Download Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: module
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: module.zip
+        body_path: CHANGELOG.md

@@ -1,0 +1,40 @@
+name: Issue Bot
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: pip install requests
+    - name: Triage Issue
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        ISSUE_NUMBER=$(jq -r .issue.number "$GITHUB_EVENT_PATH")
+        ISSUE_TITLE=$(jq -r .issue.title "$GITHUB_EVENT_PATH")
+        ISSUE_BODY=$(jq -r .issue.body "$GITHUB_EVENT_PATH")
+
+        COMMENT="Yo, $GITHUB_ACTOR! Thanks for the bug report on CodeSync. 🚀\n\n"
+        if [[ -z "$ISSUE_BODY" || "$ISSUE_BODY" == "null" ]]; then
+          COMMENT+="Looks like you forgot details—please fill out the bug report template (OS, Python version, logs, etc.). Check TUTORIAL.md for help. ⛑️\n\n"
+          COMMENT+="I’ll close this in 3 days if no update. Vanish and fix it! 🔥"
+          gh issue comment "$ISSUE_NUMBER" --body "$COMMENT"
+          gh issue label "$ISSUE_NUMBER" --add "needs-info"
+          gh issue close "$ISSUE_NUMBER" --reason "not_planned" --comment "Auto-closed due to missing info. Reopen with details!"
+          sleep 259200  # 3 days in seconds
+          gh issue reopen "$ISSUE_NUMBER" --comment "Reopening for review after 3 days—add details or it’s gone again!"
+        else
+          COMMENT+="Sweet, you’ve got details! I’ve labeled it 'bug' and assigned it to the void. Check TUTORIAL.md or existing issues. Vanish and hack! 🔥"
+          gh issue label "$ISSUE_NUMBER" --add "bug"
+          gh issue comment "$ISSUE_NUMBER" --body "$COMMENT"
+        fi
+      shell: bash
